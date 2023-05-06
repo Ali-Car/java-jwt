@@ -10,6 +10,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -28,21 +31,29 @@ public class AuthenticationService {
                 .lastName(request.getLastName())
                 .dateOfBirth(request.getDateOfBirth())
                 .email(request.getEmail())
-                .phoneNumber(passwordEncoder.encode(request.getPhoneNumber()))
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phoneNumber(request.getPhoneNumber())
                 .role(Role.USER)
                 .build();
         userRepository.save(user);
-        var jwtToken = jwtService.generateToken(user);
-        return AuthenticationResponse.builder().token(jwtToken).build();
+        return addClaims(user);
     }
 
     public AuthenticationResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-
         var user = userRepository.findByEmail(request.getEmail()).orElseThrow();
-        var jwtToken = jwtService.generateToken(user);
+        return addClaims(user);
+    }
+
+    private AuthenticationResponse addClaims(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userEmail", user.getEmail());
+        claims.put("firstName", user.getFirstName());
+        claims.put("lastName", user.getLastName());
+        claims.put("role", user.getRole());
+        var jwtToken = jwtService.generateTokens(claims, user);
         return AuthenticationResponse.builder().token(jwtToken).build();
     }
 }
